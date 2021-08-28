@@ -15,24 +15,26 @@
  */
 package io.dataspaceconnector.service;
 
+import de.fraunhofer.iais.eis.AppResource;
 import de.fraunhofer.iais.eis.ContractAgreement;
 import de.fraunhofer.iais.eis.ContractRequest;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import io.dataspaceconnector.common.exception.ResourceNotFoundException;
+import io.dataspaceconnector.common.ids.DeserializationService;
 import io.dataspaceconnector.common.ids.mapping.RdfConverter;
 import io.dataspaceconnector.common.ids.message.MessageUtils;
 import io.dataspaceconnector.common.ids.model.TemplateUtils;
-import io.dataspaceconnector.common.exception.ResourceNotFoundException;
+import io.dataspaceconnector.common.net.EndpointUtils;
 import io.dataspaceconnector.controller.resource.type.AgreementController;
 import io.dataspaceconnector.model.agreement.AgreementDesc;
 import io.dataspaceconnector.model.resource.RequestedResource;
 import io.dataspaceconnector.model.resource.RequestedResourceDesc;
-import io.dataspaceconnector.common.ids.DeserializationService;
+import io.dataspaceconnector.service.resource.TemplateBuilder;
 import io.dataspaceconnector.service.resource.relation.AgreementArtifactLinker;
 import io.dataspaceconnector.service.resource.type.AgreementService;
+import io.dataspaceconnector.service.resource.type.AppService;
 import io.dataspaceconnector.service.resource.type.ArtifactService;
-import io.dataspaceconnector.service.resource.TemplateBuilder;
 import io.dataspaceconnector.service.usagecontrol.ContractManager;
-import io.dataspaceconnector.common.net.EndpointUtils;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
@@ -46,6 +48,7 @@ import javax.persistence.PersistenceException;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -73,9 +76,14 @@ public class EntityPersistenceService {
     private final @NonNull AgreementService agreementService;
 
     /**
+     * Service for updating app data.
+     */
+    private final @NonNull AppService appService;
+
+    /**
      * Service for updating artifact data.
      */
-    private final @NonNull ArtifactService artifactService;
+    private final @NonNull ArtifactService artifactSvc;
 
     /**
      * Service for linking agreements and artifacts.
@@ -223,8 +231,7 @@ public class EntityPersistenceService {
         final var resource = deserializationService.getResource(payload);
 
         try {
-            final var resourceTemplate =
-                    TemplateUtils.getResourceTemplate(resource);
+            final var resourceTemplate = TemplateUtils.getResourceTemplate(resource);
             final var representationTemplateList =
                     TemplateUtils.getRepresentationTemplates(resource, artifactList, download,
                             remoteUrl);
@@ -242,6 +249,32 @@ public class EntityPersistenceService {
     }
 
     /**
+     * Validate response and save app to database.
+     *
+     * @param response  The response message map.
+     * @param remoteUrl The provider's url for receiving app request messages.
+     * @return The descerialized app resource.
+     */
+    public AppResource saveAppMetadata(final Map<String, String> response, final URI remoteUrl)
+            throws PersistenceException, IllegalArgumentException {
+        final var payload = MessageUtils.extractPayloadFromMultipartMessage(response);
+        final var resource = deserializationService.getAppResource(payload);
+
+        try {
+            final var resourceTemplate = TemplateUtils.getAppTemplate(resource, remoteUrl);
+
+            // Save all entities.
+            tempBuilder.build(resourceTemplate);
+        } catch (Exception e) {
+            if (log.isWarnEnabled()) {
+                log.warn("Could not store app. [exception=({})]", e.getMessage(), e);
+            }
+            throw new PersistenceException("Could not store app.", e);
+        }
+        return resource;
+    }
+
+    /**
      * Save data and return the uri of the respective artifact.
      *
      * @param response The response message.
@@ -253,17 +286,41 @@ public class EntityPersistenceService {
     public void saveData(final Map<String, String> response, final URI remoteId)
             throws ResourceNotFoundException, IllegalArgumentException, IOException {
         final var base64Data = MessageUtils.extractPayloadFromMultipartMessage(response);
-        final var artifactId = artifactService.identifyByRemoteId(remoteId);
+        final var artifactId = artifactSvc.identifyByRemoteId(remoteId);
 
         if (artifactId.isEmpty()) {
             throw new ResourceNotFoundException(remoteId.toString());
         }
 
-        final var artifact = artifactService.get(artifactId.get());
-        artifactService.setData(artifact.getId(),
-                new ByteArrayInputStream(Base64.decode(base64Data)));
+        final var artifact = artifactSvc.get(artifactId.get());
+        artifactSvc.setData(artifact.getId(), new ByteArrayInputStream(Base64.decode(base64Data)));
         if (log.isDebugEnabled()) {
             log.debug("Updated data from artifact. [target=({})]", artifactId);
+        }
+    }
+
+    /**
+     * Save app data and return the uri of the respective artifact.
+     *
+     * @param response The response message.
+     * @param remoteId The id of the app.
+     * @throws IllegalArgumentException  if the message response could not be processed.
+     * @throws ResourceNotFoundException if the artifact could not be found.
+     * @throws IOException               if the data could not be stored.
+     */
+    public void saveAppData(final Map<String, String> response, final URI remoteId)
+            throws ResourceNotFoundException, IllegalArgumentException, IOException {
+        final var dataString = MessageUtils.extractPayloadFromMultipartMessage(response);
+        final var appId = appService.identifyByRemoteId(remoteId);
+
+        if (appId.isEmpty()) {
+            throw new ResourceNotFoundException(remoteId.toString());
+        }
+
+        appService.setData(appId.get(),
+                new ByteArrayInputStream(dataString.getBytes(StandardCharsets.UTF_8)));
+        if (log.isDebugEnabled()) {
+            log.debug("Updated data from app. [target=({})]", remoteId);
         }
     }
 }
