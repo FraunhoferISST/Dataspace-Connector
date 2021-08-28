@@ -26,6 +26,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.UUID;
 
@@ -33,6 +34,7 @@ import java.util.UUID;
  * Service class for endpoint proxy.
  */
 @Service
+@Transactional
 public class EndpointServiceProxy implements EntityService<Endpoint, EndpointDesc> {
 
     /**
@@ -69,18 +71,27 @@ public class EndpointServiceProxy implements EntityService<Endpoint, EndpointDes
         return (EntityService<X, Y>) generic;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
-    public final Endpoint create(final EndpointDesc desc) {
+    public Endpoint create(final EndpointDesc desc) {
         return getService(desc.getClass()).create(desc);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
-    public final Endpoint update(final UUID entityId, final EndpointDesc desc) {
+    public Endpoint update(final UUID entityId, final EndpointDesc desc) {
         return getService(desc.getClass()).update(entityId, desc);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
-    public final Endpoint get(final UUID entityId) {
+    public Endpoint get(final UUID entityId) {
 
         try {
             return connector.get(entityId);
@@ -90,19 +101,28 @@ public class EndpointServiceProxy implements EntityService<Endpoint, EndpointDes
         return generic.get(entityId);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
-    public final Page<Endpoint> getAll(final Pageable pageable) {
+    public Page<Endpoint> getAll(final Pageable pageable) {
         return repository.findAll(pageable);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
-    public final boolean doesExist(final UUID entityId) {
+    public boolean doesExist(final UUID entityId) {
         return connector.doesExist(entityId)
                 || generic.doesExist(entityId);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
-    public final void delete(final UUID entityId) {
+    public void delete(final UUID entityId) {
         var endpoint = get(entityId);
         var service = getService(endpoint.getClass());
         service.delete(entityId);
