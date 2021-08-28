@@ -14,25 +14,23 @@
 # limitations under the License.
 #
 
-# Dependencies
-FROM maven:3-jdk-11 AS maven
-WORKDIR /app
-COPY pom.xml .
-RUN mvn -e -B dependency:resolve
-
-# Plugins
-RUN mvn -e -B dependency:resolve-plugins
-
-# Classes
-COPY src/main/java ./src/main/java
-COPY src/main/resources ./src/main/resources
-RUN mvn -e -B clean package -DskipTests -Dmaven.javadoc.skip=true
-
-# Copy the jar and build image
-FROM gcr.io/distroless/java-debian10:11
-COPY --from=maven /app/target/*.jar /app/app.jar
+FROM adoptopenjdk:11-jdk-hotspot-focal
+#FROM gcr.io/distroless/java-debian10:11
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    openssh-server \
+    nano \
+    vim \
+    less \
+    net-tools \
+    iputils-ping \
+    netcat \
+    telnet \
+    socat \
+    iproute2 \
+    isc-dhcp-client \
+    htop
+COPY target/*.jar /app/app.jar
 WORKDIR /app
 EXPOSE 8080
 EXPOSE 29292
-USER nonroot
 ENTRYPOINT ["java","-jar","app.jar"]

@@ -107,7 +107,9 @@
 		<jaeger.version>3.3.1</jaeger.version>
 		<velocity.version>1.7</velocity.version>
 		<camel.version>3.11.1</camel.version>
-		<idscp2.version>0.5.0</idscp2.version>
+		<idscp2.version>0.5.2</idscp2.version>
+		<idscp2-tpm2d.version>0.2.2</idscp2-tpm2d.version>
+		<idscp2-cmc.version>0.1.0</idscp2-cmc.version>
 
 		<!-- Plugins -->
 		<maven-enforcer-plugin.version>3.0.0</maven-enforcer-plugin.version>
@@ -459,6 +461,18 @@
             </exclusions>
         </dependency>
 
+		<dependency>
+			<groupId>de.fhg.aisec.ids</groupId>
+			<artifactId>idscp2-rat-tpm2d</artifactId>
+			<version>${idscp2-tpm2d.version}</version>
+		</dependency>
+
+		<dependency>
+			<groupId>de.fhg.aisec.ids</groupId>
+			<artifactId>idscp2-rat-cmc</artifactId>
+			<version>${idscp2-cmc.version}</version>
+		</dependency>
+
 	</dependencies>
 
 	<repositories>
@@ -494,6 +508,18 @@
 				<enabled>true</enabled>
 			</releases>
 		</repository>
+		<!-- Enables usage of locally published artifacts -->
+<!--		<repository>
+			<id>maven-local</id>
+			<name>Local m2 Repository</name>
+			<url>file://~/.m2/repository</url>
+			<snapshots>
+				<enabled>true</enabled>
+			</snapshots>
+			<releases>
+				<enabled>true</enabled>
+			</releases>
+		</repository>-->
 	</repositories>
 
 	<dependencyManagement>
